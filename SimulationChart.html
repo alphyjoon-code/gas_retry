@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Google Sans', 'Noto Sans KR', sans-serif;
+      background: #f8f9fa;
+      /* 패딩 최소화: 상하 8px, 좌우 12px */
+      padding: 8px 12px;
+      color: #202124;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ── 컨트롤 바: 한 줄 고정 높이 ── */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .legend-btn {
+      padding: 3px 11px;
+      border-radius: 20px;
+      border: 2px solid transparent;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, border-color 0.2s;
+      color: #fff;
+    }
+    .legend-btn.off {
+      opacity: 0.35;
+      border-color: #aaa;
+    }
+
+    .stat-box {
+      margin-left: auto;
+      display: flex;
+      gap: 20px;
+    }
+    .stat-item {
+      text-align: right;
+      font-size: 11px;
+      color: #5f6368;
+    }
+    .stat-item strong {
+      display: block;
+      font-size: 14px;
+      color: #1a73e8;
+      font-weight: 700;
+    }
+
+    /* ── 차트 래퍼: 남은 공간 전부 차지 ── */
+    .chart-wrap {
+      position: relative;
+      background: #fff;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      padding: 10px 10px 4px;
+      flex: 1 1 0;   /* 남은 세로 공간 전부 */
+      min-height: 0; /* flex 자식이 넘치지 않도록 */
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #5f6368;
+      font-size: 14px;
+    }
+
+    /* canvas도 부모 높이에 맞게 */
+    #chart {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ── 툴팁 ── */
+    #tooltip {
+      position: fixed;
+      background: rgba(32,33,36,0.92);
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      line-height: 1.8;
+      pointer-events: none;
+      display: none;
+      z-index: 9999;
+      max-width: 320px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+    #tooltip .tt-rate  { font-size: 14px; font-weight: 700; margin-bottom: 4px; color: #8ab4f8; }
+    #tooltip .tt-names { font-size: 11px; color: #bdc1c6; margin-top: 6px; border-top: 1px solid #444; padding-top: 5px; word-break: keep-all; }
+  </style>
+</head>
+<body>
+
+<div class="controls">
+  <div id="legend-btns"></div>
+  <div class="stat-box">
+    <div class="stat-item">최대 1순위 횟수<strong id="stat-max">-</strong></div>
+    <div class="stat-item">최대 기대수익<strong id="stat-revenue">-</strong></div>
+  </div>
+</div>
+
+<div class="chart-wrap">
+  <div id="loading">데이터 로딩 중...</div>
+  <canvas id="chart"></canvas>
+</div>
+
+<div id="tooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<script>
+const SERIES = [
+  { key: "cat1",  label: "분류: 1",  color: "rgba( 66,133,244, 0.75)" },
+  { key: "cat2",  label: "분류: 2",  color: "rgba(234, 67, 53, 0.70)" },
+  { key: "cat5",  label: "분류: 5",  color: "rgba(251,188,  4, 0.75)" },
+  { key: "cat10", label: "분류: 10", color: "rgba( 52,168, 83, 0.75)" },
+  { key: "cat30", label: "분류: 30", color: "rgba(171, 71,188, 0.70)" },
+];
+
+function fmtRate(v) {
+  if (typeof v === "number") return (v * 100).toFixed(4) + "%";
+  return String(v);
+}
+
+function fmtMoney(v) {
+  if (!v || isNaN(v)) return "0원";
+  return Number(v).toLocaleString("ko-KR") + "원";
+}
+
+function initChart(RAW) {
+  const labels     = RAW.map(d => fmtRate(d.rate));
+  const counts     = RAW.map(d => d.count);
+  const maxCount   = Math.max(...counts);
+  const maxRevenue = Math.max(...RAW.map(d => d.total));
+
+  document.getElementById("stat-max").textContent     = maxCount + "건";
+  document.getElementById("stat-revenue").textContent = fmtMoney(maxRevenue);
+  document.getElementById("loading").style.display    = "none";
+
+  const datasets = SERIES.map(s => ({
+    label:              s.label,
+    data:               RAW.map(d => d[s.key] || 0),
+    backgroundColor:    s.color,
+    borderColor:        s.color.replace(/[\d.]+\)$/, "1)"),
+    borderWidth:        0.5,
+    stack:              "stack",
+    barPercentage:      1.0,
+    categoryPercentage: 1.0,
+  }));
+
+  const maxLinePlugin = {
+    id: "maxLine",
+    afterDraw(chart) {
+      const { ctx, scales: { x, y } } = chart;
+      counts.forEach((c, i) => {
+        if (c !== maxCount || maxCount === 0) return;
+        const xPos = x.getPixelForValue(i);
+        ctx.save();
+        ctx.strokeStyle = "rgba(30,30,30,0.55)";
+        ctx.lineWidth   = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xPos, y.top);
+        ctx.lineTo(xPos, y.bottom);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+  };
+
+  const chartCtx = document.getElementById("chart").getContext("2d");
+  const chart = new Chart(chartCtx, {
+    type: "bar",
+    data: { labels, datasets },
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false, // ← 이게 있어야 flex 높이를 따라감
+      animation:           { duration: 400 },
+      interaction:         { mode: "index", intersect: false },
+      plugins: {
+        legend:  { display: false },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: {
+            maxRotation: 90,
+            font: { size: 9 },
+            callback(val, idx) {
+              return idx % 50 === 0 ? this.getLabelForValue(val) : "";
+            },
+          },
+          grid: { display: false },
+        },
+        y: {
+          stacked: true,
+          ticks: {
+            font: { size: 10 },
+            callback: v => fmtMoney(v),
+          },
+          grid: { color: "rgba(0,0,0,0.06)" },
+        },
+      },
+    },
+    plugins: [maxLinePlugin],
+  });
+
+  // 범례 버튼
+  const btnWrap = document.getElementById("legend-btns");
+  SERIES.forEach((s, idx) => {
+    const btn            = document.createElement("button");
+    btn.className        = "legend-btn";
+    btn.textContent      = s.label;
+    btn.style.background = s.color.replace(/[\d.]+\)$/, "1)");
+    btn.addEventListener("click", () => {
+      const meta = chart.getDatasetMeta(idx);
+      meta.hidden = !meta.hidden;
+      btn.classList.toggle("off", meta.hidden);
+      chart.update();
+    });
+    btnWrap.appendChild(btn);
+  });
+
+  // 커스텀 툴팁
+  const tooltip = document.getElementById("tooltip");
+  document.getElementById("chart").addEventListener("mousemove", e => {
+    const points = chart.getElementsAtEventForMode(e, "index", { intersect: false }, true);
+    if (!points.length) { tooltip.style.display = "none"; return; }
+
+    const i  = points[0].index;
+    const d  = RAW[i];
+    let html = '<div class="tt-rate">' + fmtRate(d.rate) + '</div>';
+    html += '1순위 횟수: <b>' + d.count + '건</b><br>';
+    html += '기대수익: <b>' + fmtMoney(d.total) + '</b><br>';
+    SERIES.forEach(s => {
+      if (d[s.key] > 0) html += s.label + ': ' + fmtMoney(d[s.key]) + '<br>';
+    });
+    if (d.names) {
+      html += '<div class="tt-names">📋 ' + d.names.replace(/,\s*/g, '<br>') + '</div>';
+    }
+    tooltip.innerHTML     = html;
+    tooltip.style.display = "block";
+    tooltip.style.left    = (e.clientX + 14) + "px";
+    tooltip.style.top     = (e.clientY - 10) + "px";
+  });
+
+  document.getElementById("chart").addEventListener("mouseleave", () => {
+    tooltip.style.display = "none";
+  });
+}
+
+google.script.run
+  .withSuccessHandler(initChart)
+  .withFailureHandler(function(err) {
+    document.getElementById("loading").textContent = "오류: " + err.message;
+  })
+  .getSimulationData();
+</script>
+</body>
+</html>

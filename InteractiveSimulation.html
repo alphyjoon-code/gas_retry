@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Google Sans', 'Noto Sans KR', sans-serif;
+  background: #f8f9fa;
+  color: #202124;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  gap: 6px;
+}
+
+/* ── 컨트롤 패널 ── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #5f6368;
+}
+
+.ctrl-group label { font-weight: 600; white-space: nowrap; }
+
+input[type="date"] {
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  color: #202124;
+  cursor: pointer;
+}
+input[type="date"]:focus { outline: none; border-color: #1a73e8; }
+
+/* 범위 슬라이더 */
+.slider-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 180px;
+}
+.slider-track {
+  position: relative;
+  height: 4px;
+  background: #dadce0;
+  border-radius: 2px;
+  margin: 6px 0;
+}
+.slider-range {
+  position: absolute;
+  height: 100%;
+  background: #1a73e8;
+  border-radius: 2px;
+}
+input[type="range"] {
+  position: absolute;
+  width: 100%;
+  top: -6px;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1a73e8;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  pointer-events: all;
+  cursor: pointer;
+}
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #9aa0a6;
+}
+
+/* 분류 필터 버튼 */
+.cat-btn {
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 2px solid #dadce0;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #5f6368;
+  transition: all 0.15s;
+}
+.cat-btn.active {
+  border-color: #1a73e8;
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+/* 구분선 */
+.divider { width: 1px; height: 28px; background: #e0e0e0; flex-shrink: 0; }
+
+/* 통계 */
+.stat-box { margin-left: auto; display: flex; gap: 20px; }
+.stat-item { text-align: right; font-size: 11px; color: #5f6368; }
+.stat-item strong { display: block; font-size: 14px; color: #1a73e8; font-weight: 700; }
+
+/* ── 차트 ── */
+.chart-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+  background: #fff;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  padding: 10px 10px 4px;
+}
+#chart { width: 100% !important; height: 100% !important; }
+
+/* 로딩 */
+#loading {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #5f6368; font-size: 14px;
+  text-align: center; line-height: 2;
+}
+#loading span { display: block; font-size: 11px; color: #9aa0a6; }
+
+/* ── 툴팁 ── */
+#tooltip {
+  position: fixed;
+  background: rgba(32,33,36,0.93);
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  line-height: 1.8;
+  pointer-events: none;
+  display: none;
+  z-index: 9999;
+  max-width: 300px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.tt-rate { font-size: 13px; font-weight: 700; color: #8ab4f8; margin-bottom: 4px; }
+.tt-names { font-size: 11px; color: #bdc1c6; margin-top: 5px; border-top: 1px solid #444; padding-top: 5px; word-break: keep-all; }
+</style>
+</head>
+<body>
+
+<!-- 컨트롤 -->
+<div class="controls">
+
+  <!-- 날짜 입력 -->
+  <div class="ctrl-group">
+    <label>기간</label>
+    <input type="date" id="dateStart">
+    <span>~</span>
+    <input type="date" id="dateEnd">
+  </div>
+
+  <!-- 범위 슬라이더 -->
+  <div class="slider-wrap">
+    <div class="slider-track">
+      <div class="slider-range" id="sliderRange"></div>
+      <input type="range" id="sliderStart" min="0" max="100" value="0">
+      <input type="range" id="sliderEnd"   min="0" max="100" value="100">
+    </div>
+    <div class="slider-labels">
+      <span id="sliderLabelStart"></span>
+      <span id="sliderLabelEnd"></span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 분류 필터 -->
+  <div class="ctrl-group">
+    <label>분류</label>
+    <button class="cat-btn active" data-code="all">전체</button>
+    <button class="cat-btn active" data-code="1">1</button>
+    <button class="cat-btn active" data-code="2">2</button>
+    <button class="cat-btn active" data-code="5">5</button>
+    <button class="cat-btn active" data-code="10">10</button>
+    <button class="cat-btn active" data-code="30">30</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 통계 -->
+  <div class="stat-box">
+    <div class="stat-item">최대 1순위<strong id="stat-max">-</strong></div>
+    <div class="stat-item">최대 기대수익<strong id="stat-rev">-</strong></div>
+    <div class="stat-item">기간 내 용역<strong id="stat-cnt">-</strong></div>
+  </div>
+
+</div>
+
+<!-- 차트 -->
+<div class="chart-wrap">
+  <div id="loading">데이터 로딩 중...<span>처음 한 번만 로딩됩니다</span></div>
+  <canvas id="chart"></canvas>
+</div>
+
+<div id="tooltip"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+// ── 전역 상태 ─────────────────────────────────────────────────────────────────
+let ALL_PROJECTS = [];   // GAS에서 받은 전체 용역 데이터
+let RATE_AXIS    = [];   // A열 예가율 기준선
+let chart        = null;
+let allDates     = [];   // 정렬된 고유 날짜 배열 (슬라이더 인덱스용)
+let activeCodes  = new Set(["1","2","5","10","30"]); // 활성 분류코드
+
+const SERIES_COLORS = {
+  "1":  "rgba( 66,133,244,0.80)",
+  "2":  "rgba(234, 67, 53,0.75)",
+  "5":  "rgba(251,188,  4,0.80)",
+  "10": "rgba( 52,168, 83,0.80)",
+  "30": "rgba(171, 71,188,0.75)",
+};
+const SERIES_ORDER = ["1","2","5","10","30"];
+
+// ── 포맷 헬퍼 ────────────────────────────────────────────────────────────────
+function fmtRate(v) {
+  return typeof v === "number" ? (v * 100).toFixed(4) + "%" : String(v);
+}
+function fmtMoney(v) {
+  return v ? Number(v).toLocaleString("ko-KR") + "원" : "0원";
+}
+
+// ── 집계 ─────────────────────────────────────────────────────────────────────
+function aggregate(startDate, endDate) {
+  // 필터: 기간 + 분류
+  const filtered = ALL_PROJECTS.filter(p =>
+    p.date >= startDate &&
+    p.date <= endDate   &&
+    activeCodes.has(String(p.code))
+  );
+
+  // 예가율 구간별 집계
+  // result[i] = { count, total, byCode: {1,2,5,10,30}, names[] }
+  const result = RATE_AXIS.map(() => ({
+    count: 0, total: 0,
+    byCode: {"1":0,"2":0,"5":0,"10":0,"30":0},
+    names: []
+  }));
+
+  filtered.forEach(p => {
+    RATE_AXIS.forEach((rate, i) => {
+      if (rate >= p.min && rate < p.max) {
+        result[i].count++;
+        result[i].total += p.price;
+        result[i].byCode[String(p.code)] = (result[i].byCode[String(p.code)] || 0) + p.price;
+        result[i].names.push(p.name);
+      }
+    });
+  });
+
+  return { result, filtered };
+}
+
+// ── 차트 갱신 ────────────────────────────────────────────────────────────────
+function updateChart() {
+  const startDate = document.getElementById("dateStart").value;
+  const endDate   = document.getElementById("dateEnd").value;
+  if (!startDate || !endDate || startDate > endDate) return;
+
+  const { result, filtered } = aggregate(startDate, endDate);
+
+  const counts   = result.map(r => r.count);
+  const maxCount = Math.max(...counts, 0);
+  const maxRev   = Math.max(...result.map(r => r.total), 0);
+
+  document.getElementById("stat-max").textContent = maxCount + "건";
+  document.getElementById("stat-rev").textContent = fmtMoney(maxRev);
+  document.getElementById("stat-cnt").textContent = filtered.length + "건";
+
+  const labels = RATE_AXIS.map(fmtRate);
+
+  const datasets = SERIES_ORDER.map(code => ({
+    label:              "분류 " + code,
+    data:               result.map(r => r.byCode[code] || 0),
+    backgroundColor:    SERIES_COLORS[code],
+    borderColor:        SERIES_COLORS[code].replace(/[\d.]+\)$/, "1)"),
+    borderWidth:        0.5,
+    stack:              "stack",
+    barPercentage:      1.0,
+    categoryPercentage: 1.0,
+  }));
+
+  if (!chart) {
+    // 최초 생성
+    const maxLinePlugin = {
+      id: "maxLine",
+      afterDraw(ch) {
+        const { ctx, scales: { x, y } } = ch;
+        const mc = Math.max(...ch.data.datasets[0].data.map((_, i) =>
+          ch.data.datasets.reduce((s, ds) => s + (ds.data[i] || 0), 0)
+        ));
+        // 최대 합계 열에 점선
+        ch.data.labels.forEach((_, i) => {
+          const total = ch.data.datasets.reduce((s, ds) => s + (ds.data[i] || 0), 0);
+          const cnt   = result[i] ? result[i].count : 0;
+          if (cnt !== maxCount || maxCount === 0) return;
+          const xPos = x.getPixelForValue(i);
+          ctx.save();
+          ctx.strokeStyle = "rgba(30,30,30,0.5)";
+          ctx.lineWidth   = 1.5;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(xPos, y.top);
+          ctx.lineTo(xPos, y.bottom);
+          ctx.stroke();
+          ctx.restore();
+        });
+      }
+    };
+
+    chart = new Chart(document.getElementById("chart").getContext("2d"), {
+      type: "bar",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 200 },
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend:  { display: false },
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            ticks: {
+              maxRotation: 90,
+              font: { size: 9 },
+              callback(val, idx) {
+                return idx % 50 === 0 ? this.getLabelForValue(val) : "";
+              },
+            },
+            grid: { display: false },
+          },
+          y: {
+            stacked: true,
+            ticks: {
+              font: { size: 10 },
+              callback: v => fmtMoney(v),
+            },
+            grid: { color: "rgba(0,0,0,0.06)" },
+          },
+        },
+      },
+      plugins: [maxLinePlugin],
+    });
+
+    // 툴팁 이벤트
+    const tooltip = document.getElementById("tooltip");
+    const canvas  = document.getElementById("chart");
+    canvas.addEventListener("mousemove", e => {
+      const points = chart.getElementsAtEventForMode(e, "index", { intersect: false }, true);
+      if (!points.length) { tooltip.style.display = "none"; return; }
+      const i = points[0].index;
+      const r = result[i];
+      let html = '<div class="tt-rate">' + fmtRate(RATE_AXIS[i]) + '</div>';
+      html += '1순위 횟수: <b>' + r.count + '건</b><br>';
+      html += '기대수익: <b>' + fmtMoney(r.total) + '</b><br>';
+      SERIES_ORDER.forEach(code => {
+        if (r.byCode[code] > 0) html += '분류 ' + code + ': ' + fmtMoney(r.byCode[code]) + '<br>';
+      });
+      if (r.names.length) {
+        html += '<div class="tt-names">📋 ' + r.names.join('<br>') + '</div>';
+      }
+      tooltip.innerHTML     = html;
+      tooltip.style.display = "block";
+      tooltip.style.left    = (e.clientX + 14) + "px";
+      tooltip.style.top     = (e.clientY - 10) + "px";
+    });
+    canvas.addEventListener("mouseleave", () => { tooltip.style.display = "none"; });
+
+  } else {
+    // 이후 갱신: 데이터만 교체
+    chart.data.labels   = labels;
+    chart.data.datasets = datasets;
+    chart.update("none"); // 애니메이션 없이 즉시 갱신
+  }
+}
+
+// ── 슬라이더 ─────────────────────────────────────────────────────────────────
+function initSlider(dates) {
+  allDates = dates; // "yyyy-MM-dd" 정렬 배열
+  const n  = dates.length - 1;
+
+  const sliderStart = document.getElementById("sliderStart");
+  const sliderEnd   = document.getElementById("sliderEnd");
+  const range       = document.getElementById("sliderRange");
+  const labelStart  = document.getElementById("sliderLabelStart");
+  const labelEnd    = document.getElementById("sliderLabelEnd");
+  const inputStart  = document.getElementById("dateStart");
+  const inputEnd    = document.getElementById("dateEnd");
+
+  sliderStart.max = n;
+  sliderEnd.max   = n;
+  sliderEnd.value = n;
+
+  function syncFromSlider() {
+    let s = parseInt(sliderStart.value);
+    let e = parseInt(sliderEnd.value);
+    if (s > e) { s = e; sliderStart.value = s; }
+
+    const pctS = (s / n) * 100;
+    const pctE = (e / n) * 100;
+    range.style.left  = pctS + "%";
+    range.style.width = (pctE - pctS) + "%";
+
+    const sd = allDates[s];
+    const ed = allDates[e];
+    labelStart.textContent = sd;
+    labelEnd.textContent   = ed;
+    inputStart.value = sd;
+    inputEnd.value   = ed;
+    updateChart();
+  }
+
+  function syncFromDate() {
+    const sd = inputStart.value;
+    const ed = inputEnd.value;
+    // 가장 가까운 인덱스 찾기
+    let si = allDates.findIndex(d => d >= sd);
+    let ei = allDates.findLastIndex(d => d <= ed);
+    if (si < 0) si = 0;
+    if (ei < 0) ei = n;
+    sliderStart.value = si;
+    sliderEnd.value   = ei;
+    syncFromSlider();
+  }
+
+  sliderStart.addEventListener("input", syncFromSlider);
+  sliderEnd.addEventListener("input", syncFromSlider);
+  inputStart.addEventListener("change", syncFromDate);
+  inputEnd.addEventListener("change", syncFromDate);
+
+  syncFromSlider();
+}
+
+// ── 분류 버튼 ────────────────────────────────────────────────────────────────
+document.querySelectorAll(".cat-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const code = btn.dataset.code;
+
+    if (code === "all") {
+      // 전체 토글: 하나라도 꺼져있으면 전체 켜기, 다 켜져있으면 전체 끄기
+      const allActive = SERIES_ORDER.every(c => activeCodes.has(c));
+      if (allActive) {
+        activeCodes.clear();
+        document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+      } else {
+        SERIES_ORDER.forEach(c => activeCodes.add(c));
+        document.querySelectorAll(".cat-btn").forEach(b => b.classList.add("active"));
+      }
+    } else {
+      if (activeCodes.has(code)) {
+        activeCodes.delete(code);
+        btn.classList.remove("active");
+      } else {
+        activeCodes.add(code);
+        btn.classList.add("active");
+      }
+      // 전체 버튼 상태 동기화
+      const allBtn = document.querySelector(".cat-btn[data-code='all']");
+      allBtn.classList.toggle("active", SERIES_ORDER.every(c => activeCodes.has(c)));
+    }
+
+    updateChart();
+  });
+});
+
+// ── 초기 데이터 로딩 (GAS 1회 호출) ─────────────────────────────────────────
+google.script.run
+  .withSuccessHandler(function(data) {
+    RATE_AXIS    = data.rateAxis;
+    ALL_PROJECTS = data.projects;
+
+    if (!ALL_PROJECTS.length) {
+      document.getElementById("loading").textContent = "용역 데이터가 없습니다.";
+      return;
+    }
+
+    // 고유 날짜 배열 (슬라이더용)
+    const dateSet = new Set(ALL_PROJECTS.map(p => p.date));
+    const dates   = Array.from(dateSet).sort();
+
+    document.getElementById("loading").style.display = "none";
+    initSlider(dates);
+  })
+  .withFailureHandler(function(err) {
+    document.getElementById("loading").textContent = "오류: " + err.message;
+  })
+  .getProjectsForInteractive();
+</script>
+</body>
+</html>
