@@ -1,12 +1,14 @@
 /**
- * [포맷팅] 분석 결과 열(K~Q) 테두리 + 정렬 + 숫자서식 적용 [점추정 복원판]
- * - 2026-06-19 롤백: K/L/N/O/P를 "PQ 범위추정" 출력 기준 서식에서
- *   점추정(필요PQ점수/추정PQ점수/추정낙찰하한율/추정예가율/PQ Gap) 기준으로 복원.
+ * [포맷팅] 분석 결과 열(K~Q) 테두리 + 정렬 + 숫자서식 적용 [2026-06-23 열구조 개편판]
+ * - 신규 열 구조(claude.md 9절): K=가점, L=PQ하한(필요PQ점수), M~Q=PQ 티어별 추정예가율.
+ * - L~Q는 updatePQTierColumns()가 자체적으로 테두리/숫자서식/조건부 배경색까지
+ *   이미 적용하므로, 이 함수는 그 범위와 겹치되 값 자체는 건드리지 않는(서식만
+ *   재적용하는) 선이라 안전함. 이 함수가 유일하게 책임지는 건 K(updatePQTierColumns가
+ *   서식을 적용하지 않는 열)의 테두리/정렬/숫자서식이다.
  * - 테두리: K~Q 전체
- * - 정렬: K~P(수치형) 중앙 / Q(특이사항, 텍스트) 좌측
- * - 숫자서식: K,L,M,P는 0.00(PQ 점수 단위) / N,O는 0.000%(예가율 단위)
- *   M(가점)은 외부 가산점 파일 값을 그대로 받아써서 소수 자릿수가
- *   들쭉날쭉(0.8 / 0.80 / 0 등)했던 것을 통일
+ * - 정렬: K~Q 전체 중앙(Q도 더 이상 텍스트 특이사항이 아니라 수치형 예가율이므로
+ *   기존 "Q는 텍스트라 좌측" 예외를 제거함)
+ * - 숫자서식: K,L은 0.00(가점/PQ점수 단위), M~Q는 0.000%(추정예가율 단위)
  */
 function formatAnalysisColumns() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -25,22 +27,11 @@ function formatAnalysisColumns() {
     SpreadsheetApp.BorderStyle.SOLID
   );
 
-  // 정렬: K~P(수치형) 중앙, Q(특이사항, 텍스트) 좌측
-  sheet.getRange(2, 11, dataRows, 6).setHorizontalAlignment("center"); // K,L,M,N,O,P
-  sheet.getRange(2, 17, dataRows, 1).setHorizontalAlignment("left");   // Q
+  // 정렬: K~Q 전체 중앙(모두 수치형)
+  sheet.getRange(2, 11, dataRows, 7).setHorizontalAlignment("center"); // K~Q
 
   // 숫자서식 통일
-  sheet.getRange(2, 11, dataRows, 1).setNumberFormat("0.00");   // K 필요PQ점수
-  sheet.getRange(2, 12, dataRows, 1).setNumberFormat("0.00");   // L 추정PQ점수
-  sheet.getRange(2, 13, dataRows, 1).setNumberFormat("0.00");   // M 가점
-  sheet.getRange(2, 14, dataRows, 1).setNumberFormat("0.000%"); // N 추정낙찰하한율
-  sheet.getRange(2, 15, dataRows, 1).setNumberFormat("0.000%"); // O 추정예가율
-  sheet.getRange(2, 16, dataRows, 1).setNumberFormat("0.00");   // P PQ Gap(점수 단위)
-
-  // Q열(17번째) 너비 자동조정
-  sheet.autoResizeColumn(17);
-  // 최소 너비 보장 (자동조정 후 너무 좁으면 200px로 강제)
-  if (sheet.getColumnWidth(17) < 200) {
-    sheet.setColumnWidth(17, 200);
-  }
+  sheet.getRange(2, 11, dataRows, 1).setNumberFormat("0.00");   // K 가점
+  sheet.getRange(2, 12, dataRows, 1).setNumberFormat("0.00");   // L PQ하한(필요PQ점수)
+  sheet.getRange(2, 13, dataRows, 5).setNumberFormat("0.000%"); // M~Q 티어별 추정예가율
 }

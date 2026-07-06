@@ -18,13 +18,8 @@ function updateContractorDashboard() {
   targetSS.moveActiveSheet(1);
 
   // ── 제외 시트 설정 ──────────────────────────────────────────
-  const EXCLUDE_KEYWORDS   = ["시뮬레이션", "차트", "백데이터", "대시보드", "실예가", "(exc)", "분석용", "업체매핑"];
-  const EXCLUDE_EXACT_NAMES = [
-    "GT", "Form", "🏠 네비게이션", "분석용_RawData", "누적현황", "통합",
-    "PQ백데이터", "PQ백데이터(분석용)", "통계_대시보드",
-    "최근 30일 실예가", "전체 예가율 차트", "전기간 예가율 차트", "최근 30일 백데이터", "실적"
-  ];
-  const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+  const EXCLUDE_KEYWORDS   = ["시뮬레이션", "차트", "백데이터", "대시보드", "실예가", "분석용", "실적", "업체매핑"];
+  const EXCLUDE_EXACT_NAMES = ["GT", "Form", "🏠 네비게이션", "분석용_RawData", "누적현황"];
   // ────────────────────────────────────────────────────────────
 
   // ── GT 시트에서 nameMap 로드 ──────────────────────────────────
@@ -45,8 +40,7 @@ function updateContractorDashboard() {
     // 제외 시트 필터링
     if (
       EXCLUDE_EXACT_NAMES.includes(sName) ||
-      EXCLUDE_KEYWORDS.some(kw => sName.includes(kw)) ||
-      DATE_PATTERN.test(sName)
+      EXCLUDE_KEYWORDS.some(kw => sName.includes(kw))
     ) return;
 
     // ── 메타 정보 일괄 읽기 (B6:B18) ─────────────────────────────
@@ -65,11 +59,11 @@ function updateContractorDashboard() {
     const isOpened = estPrice > 0;
     if (!isOpened) return;
 
-    // ── 참가업체 데이터 일괄 읽기 (E~K열: K=필요PQ점수 포함 7열) ──
+    // ── 참가업체 데이터 일괄 읽기 (E~L열: L=필요PQ점수 포함 8열) ──
     const lastRow = sheet.getLastRow();
     if (lastRow < 2) return;
 
-    const participantData = sheet.getRange(2, 5, lastRow - 1, 7).getValues();
+    const participantData = sheet.getRange(2, 5, lastRow - 1, 8).getValues();
 
     const validRows = participantData.filter(r => {
       const rank = r[0];
@@ -99,7 +93,7 @@ function updateContractorDashboard() {
       // ── 선순위 탈락자 추출 ─────────────────────────────────────
       validRows.slice(0, winnerIdx).forEach(r => {
         const pName = r[2].toString().trim();
-        const pqScore = r[6]; // K열: 필요PQ점수
+        const pqScore = r[7]; // L열: 필요PQ점수
 
         disqualifiedData.push({
           projectName: sName,

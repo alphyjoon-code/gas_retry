@@ -93,6 +93,7 @@ function analyzeIntensityToColumns() {
     .setFontWeight("bold")
     .setHorizontalAlignment("center");
   activeSheet.getRange(2, INTENSITY_COL.COUNT, buckets.length, 1)
+    .setNumberFormat("0%")
     .setHorizontalAlignment("center");
 
   activeSheet.getRange(1, INTENSITY_COL.INTERVAL, results.length, 2)
