@@ -241,9 +241,6 @@ function calcPQScore_(hPercent, classCode, bonusScore = 0) {
     passScore = 90;
     bidScoreMax = 30;
     divisor = 0.7;
-    hasThreshold = true;
-    threshold = 89.25;
-    thresholdScore = 27;
   } else if (code === 5) {
     passScore = 95;
     bidScoreMax = 50;
@@ -256,8 +253,8 @@ function calcPQScore_(hPercent, classCode, bonusScore = 0) {
     bidScoreMax = 70;
     divisor = 0.3;
     hasThreshold = true;
-    threshold = 88.25;
-    thresholdScore = 85;
+    threshold = 89.25;
+    thresholdScore = 65;
   } else {
     return ""; // 분류코드 불명
   }
