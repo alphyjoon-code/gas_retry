@@ -17,9 +17,9 @@ function getPqLimitRateFromTable_(targetPq, codeKey) {
   if (!pqLimitTableCache) {
     pqLimitTableCache = {};
     const ss = SpreadsheetApp.openById(PQ_TABLE_SPREADSHEET_ID);
-    const sheet = ss.getSheetByName("PQ점수별 낙찰하한율");
+    const sheet = ss.getSheetByName("낙찰하한율정리");
     if (!sheet) {
-      throw new Error("링크된 파일에서 'PQ점수별 낙찰하한율' 시트를 찾을 수 없습니다.");
+      throw new Error("링크된 파일에서 '낙찰하한율정리' 시트를 찾을 수 없습니다.");
     }
     const data = sheet.getDataRange().getValues();
 
