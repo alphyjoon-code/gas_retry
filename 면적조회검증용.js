@@ -5,7 +5,7 @@ function analyzeSizeData() {
   
   // --- 1. 기준 정보 수집 (공고일, 기준면적, 용역명) ---
   var dateValue = activeSheet.getRange('B19').getValue();
-  var targetDate = parseSafeDate(dateValue); // 안전하게 날짜 객체로 변환
+  var targetDate = parseSafeDate(dateValue); 
   
   if (!targetDate || isNaN(targetDate.getTime())) {
     ui.alert('오류', 'B19 셀에 올바른 날짜 형식이 입력되어 있지 않습니다.', ui.ButtonSet.OK);
@@ -28,10 +28,7 @@ function analyzeSizeData() {
   }
   
   // --- 2. 조회 기간(5년) 산정 및 '정수(YYYYMMDD)' 변환 ---
-  // 종료일 = 공고일 (예: 20260702)
   var endDateInt = toDateInt(targetDate); 
-  
-  // 시작일 = 공고일 - 5년 + 1일 (예: 20210703)
   var startDate = new Date(targetDate.getTime());
   startDate.setFullYear(startDate.getFullYear() - 5);
   startDate.setDate(startDate.getDate() + 1); 
@@ -47,26 +44,21 @@ function analyzeSizeData() {
   var data = sourceSheet.getDataRange().getValues();
   var companyData = {}; 
   
-  // --- 4. 데이터 필터링 (기획 조건과 정확히 일치하게 검증) ---
+  // --- 4. 데이터 필터링 ---
   for (var i = 1; i < data.length; i++) {
     var row = data[i];
-    var projectName = row[0]; // A열: 용역명
-    var expectedCompletionDate = parseSafeDate(row[4]); // E열: 예상준공일
-    var areaData = row[5]; // F열: 발주면적
-    var company = row[6]; // G열: 낙찰업체
+    var projectName = row[0]; 
+    var expectedCompletionDate = parseSafeDate(row[4]); 
+    var areaData = row[5]; 
+    var company = row[6]; 
     
-    // 유효한 날짜가 아니면 패스
     if (!expectedCompletionDate || isNaN(expectedCompletionDate.getTime())) continue;
     
-    // 비교 대상의 준공일도 정수(YYYYMMDD)로 변환
     var compDateInt = toDateInt(expectedCompletionDate);
     
-    // 면적 데이터 검증
     if (areaData === '' || areaData === '-' || isNaN(parseFloat(areaData))) continue;
     var area = parseFloat(areaData);
     
-    // [가장 중요한 부분] 기획한 대로 숫자(면적 및 정수화된 날짜) 크기 비교
-    // 예: 면적이 6035 이상이고, 20210703 <= 준공일 <= 20260702 일 것
     if (area >= inputArea && compDateInt >= startDateInt && compDateInt <= endDateInt) {
       if (!companyData[company]) {
         companyData[company] = [];
@@ -76,7 +68,7 @@ function analyzeSizeData() {
   }
   
   // --- 5. 결과 가공 및 출력 ---
-  var outputData = [['수행업체', '건수', '해당 용역명(검증용)']];
+  var outputData = [['수행업체', '건수', '해당 용역명']];
   for (var comp in companyData) {
     if (comp.toString().trim() !== '') {
       var count = companyData[comp].length;
@@ -133,12 +125,13 @@ function analyzeSizeData() {
   newSheet.setColumnWidth(3, 500); 
   newSheet.setFrozenRows(1);
   
-  ui.alert('완료', '분석이 완료되었습니다.\n[' + finalSheetName + '] 시트의 C열에서 조건에 부합하는 용역명을 검증해 보세요.', ui.ButtonSet.OK);
+  // --- 6. [수정됨] 완료 알림을 Toast 메시지로 변경 ---
+  // ss.toast('보여줄 내용', '제목', 노출시간(초))
+  ss.toast('[' + finalSheetName + '] 시트 생성 완료!', '실적 분석 완료 🚀', 5);
 }
 
-
 /**
- * 보조 함수 1: Date 객체를 YYYYMMDD 형태의 정수로 변환 (예: 20260702)
+ * 보조 함수 1: Date 객체를 YYYYMMDD 형태의 정수로 변환
  */
 function toDateInt(dateObj) {
   var y = dateObj.getFullYear();
@@ -148,16 +141,16 @@ function toDateInt(dateObj) {
 }
 
 /**
- * 보조 함수 2: 셀의 값이 문자열(Text) 형태인 경우에도 안전하게 타임존 오차 없이 Date 객체로 파싱
+ * 보조 함수 2: 안전하게 날짜 객체로 파싱
  */
 function parseSafeDate(cellValue) {
   if (cellValue instanceof Date) {
     return cellValue;
   }
   if (typeof cellValue === 'string') {
-    var parts = cellValue.split('-'); // "2026-07-02" 형식일 경우
+    var parts = cellValue.split('-'); 
     if (parts.length === 3) {
-      return new Date(parts[0], parts[1] - 1, parts[2]); // 로컬 시간으로 강제 할당
+      return new Date(parts[0], parts[1] - 1, parts[2]); 
     }
   }
   return new Date(cellValue);
