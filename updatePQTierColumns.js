@@ -17,6 +17,8 @@
  *
  * 추정예가율 공식:
  *   추정예가율 = 투찰금액(I열) ÷ (기초가격(B11) × 낙찰하한율(해당PQ점수))
+ *   ※ 낙찰하한율 조회 시 L열(calcPQScore_)과 동일하게 K열 가점을 반영:
+ *     유효PQ = 티어PQ + (가점 ÷ divisor) → 해당 유효PQ 이하 최고 티어의 낙찰하한율 사용
  *
  * 조건부 서식:
  *   티어 PQ점수 < L열(PQ하한)인 경우 해당 셀 배경을 회색(#CCCCCC)으로 표시
@@ -45,6 +47,33 @@ const PQ_TIERS = ["100.00", "98.20", "96.40", "94.60", "92.80"];
 // 조건부 서식용 색상
 const COLOR_IMPOSSIBLE = "#CCCCCC"; // PQ하한 미달 티어 (불가능한 시나리오)
 const COLOR_DEFAULT    = null;       // 기본 배경 (투명)
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// M~Q 추정예가율 계산 (L열 calcPQScore_와 동일하게 가점 반영)
+// L = (적격통과점수 - 입찰가격평점 - 가점) / divisor 이므로,
+// 가점은 PQ divisor 만큼의 PQ 점수와 동등 → 유효PQ = 티어PQ + 가점/divisor
+// ─────────────────────────────────────────────────────────────────────────────
+function getTierLimitRate_(tierScore, codeKey, bonus, classCode) {
+  const divisor = getPqBonusDivisor_(classCode);
+  const effectivePq = tierScore + (bonus / divisor);
+
+  // PQ_TIERS는 내림차순(100→92.8). effectivePq 이하 최고 티어의 낙찰하한율 사용
+  let selectedTier = PQ_TIERS[PQ_TIERS.length - 1];
+  for (const tier of PQ_TIERS) {
+    if (parseFloat(tier) <= effectivePq) {
+      selectedTier = tier;
+      break;
+    }
+  }
+  return PQ_TIER_LIMIT_TABLE[selectedTier][codeKey];
+}
+
+function calcEstRateAtTier_(bidAmt, basePrice, tierScore, classCode, codeKey, bonus) {
+  const limitRate = getTierLimitRate_(tierScore, codeKey, bonus, classCode);
+  if (!(bidAmt > 0 && basePrice > 0 && limitRate > 0)) return "";
+  return bidAmt / (basePrice * limitRate);
+}
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,15 +144,11 @@ function updatePQTierColumns() {
     const tierColors = [];
 
     for (const tier of PQ_TIERS) {
-      const limitRate = PQ_TIER_LIMIT_TABLE[tier][codeKey];
-      let estRate = "";
-      if (bidAmt > 0 && basePrice > 0 && limitRate > 0) {
-        estRate = bidAmt / (basePrice * limitRate);
-      }
+      const tierScore = parseFloat(tier);
+      const estRate = calcEstRateAtTier_(bidAmt, basePrice, tierScore, classCode, codeKey, bonus);
       tierRates.push(estRate);
 
       // 조건부 서식: 이 티어 PQ점수 < PQ하한이면 회색
-      const tierScore = parseFloat(tier);
       const isImpossible = (pqMin !== "" && tierScore < pqMin);
       tierColors.push(isImpossible ? COLOR_IMPOSSIBLE : COLOR_DEFAULT);
     }
