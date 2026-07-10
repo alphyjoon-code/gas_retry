@@ -6,6 +6,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('🛠️ 입찰도구')
       .addItem('0-1. 면적조회', 'analyzeSizeData')
+      .addItem('0-2. 개찰결과', 'fillOpengResultToSheet')
       .addSeparator()
       .addItem('1-1. 입찰분석', 'runAllBidAnalysis')
       .addItem('1-2. 연번부여', 'updateSheetSerialNumbers')
