@@ -54,7 +54,7 @@ function updateResultFile() {
       const rowIdx = i + 1;
       
       // 공통 정보 업데이트
-      targetSheet.getRange(rowIdx, 18).setValue(estPrice);               // R열: 예정가격
+      targetSheet.getRange(rowIdx, 19).setValue(estPrice);               // R열: 예정가격
       targetSheet.getRange(rowIdx, 21).setValue(totalCompanies);         // U열: 업체수
       targetSheet.getRange(rowIdx, 30).setValue(dataMap["1st"].name);    // AD열: 1순위 업체명
       targetSheet.getRange(rowIdx, 31).setValue(dataMap["1st"].price);   // AE열: 1위가격
