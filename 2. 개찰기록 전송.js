@@ -54,19 +54,19 @@ function updateResultFile() {
       const rowIdx = i + 1;
       
       // 공통 정보 업데이트
-      targetSheet.getRange(rowIdx, 17).setValue(estPrice);               // Q열: 예정가격
-      targetSheet.getRange(rowIdx, 20).setValue(totalCompanies);         // T열: 업체수
-      targetSheet.getRange(rowIdx, 29).setValue(dataMap["1st"].name);    // AC열: 1순위 업체명
-      targetSheet.getRange(rowIdx, 30).setValue(dataMap["1st"].price);   // AD열: 1위가격
+      targetSheet.getRange(rowIdx, 18).setValue(estPrice);               // R열: 예정가격
+      targetSheet.getRange(rowIdx, 21).setValue(totalCompanies);         // U열: 업체수
+      targetSheet.getRange(rowIdx, 30).setValue(dataMap["1st"].name);    // AD열: 1순위 업체명
+      targetSheet.getRange(rowIdx, 31).setValue(dataMap["1st"].price);   // AE열: 1위가격
 
       // 자사(정우/정우종합)별 개별 정보 업데이트
       if (targetCompany === "정우" && dataMap["정우"].rank !== "") {
         targetSheet.getRange(rowIdx, 14).setValue(dataMap["정우"].price); // N열: 투찰가격
-        targetSheet.getRange(rowIdx, 19).setValue(dataMap["정우"].rank);  // S열: 결과(순위)
+        targetSheet.getRange(rowIdx, 20).setValue(dataMap["정우"].rank);  // T열: 결과(순위)
         updateCount++;
       } else if (targetCompany === "정우종합" && dataMap["정우종합"].rank !== "") {
         targetSheet.getRange(rowIdx, 14).setValue(dataMap["정우종합"].price); // N열
-        targetSheet.getRange(rowIdx, 19).setValue(dataMap["정우종합"].rank);  // S열: 결과(순위)
+        targetSheet.getRange(rowIdx, 20).setValue(dataMap["정우종합"].rank);  // T열: 결과(순위)
         updateCount++;
       }
     }
