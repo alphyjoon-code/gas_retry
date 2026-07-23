@@ -26,10 +26,13 @@
  *
  * 실행 흐름:
  *   1. B20에서 입찰공고번호를 읽는다.
- *   2. API 호출 (bidNtceOrd='000', bidClsfcNo='0', rbidNo='000' 기본값)
- *   3. E2:I(기존 마지막 데이터 행)을 지운다 (이전 공고 잔여 데이터 방지).
- *   4. opengRank 순으로 정렬 후 E2부터 원본 그대로 채운다.
- *   5. updateBiddingResults()를 이어서 호출해 정렬/분류/재계산/서식을 맡긴다.
+ *   2. 입찰공고번호 정제 (하이픈'-' 분리 후 공고번호 및 차수 추출)
+ *   3. API 호출
+ *      - 차수 명시 시(-01 등): 해당 차수로 1회 즉시 호출 (속도 최적화)
+ *      - 차수 미지정 시: 000 -> 001 -> 002 -> 003 순차 탐색 후 데이터 발견 즉시 종료
+ *   4. E2:I(기존 마지막 데이터 행)을 지운다 (이전 공고 잔여 데이터 방지).
+ *   5. opengRank 순으로 정렬 후 E2부터 원본 그대로 채운다.
+ *   6. updateBiddingResults()를 이어서 호출해 정렬/분류/재계산/서식을 맡긴다.
  *
  * 사전 준비: 스크립트 속성에 G2B_SERVICE_KEY 등록 완료 상태여야 함.
  */
@@ -124,17 +127,51 @@ function fillOpengResultToSheet() {
 
   if (!bidNtceNo || typeof bidNtceNo !== 'string' || bidNtceNo.trim() === '') {
     SpreadsheetApp.getUi().alert(
-      layout.BID_NTCE_NO_CELL + ' 셀에 입찰공고번호를 먼저 입력해주세요. (예: R26BK01590022)'
+      layout.BID_NTCE_NO_CELL + ' 셀에 입찰공고번호를 먼저 입력해주세요. (예: R26BK01590022 또는 20240112345-01)'
     );
     return;
   }
 
-  let items;
-  try {
-    items = getOpengCompleteList_(bidNtceNo.trim(), '000', '0', '000');
-  } catch (e) {
-    SpreadsheetApp.getUi().alert('개찰결과 조회 실패: ' + e.message);
-    return;
+  // B20 셀에서 가져온 공고번호 정제 (예: "20240112345-01" -> 공고번호: "20240112345", 차수: "001")
+  let rawBidNo = String(bidNtceNo).trim();
+  let cleanBidNo = rawBidNo;
+  let bidOrd = '000'; // 기본값
+
+  if (rawBidNo.includes('-')) {
+    const parts = rawBidNo.split('-');
+    cleanBidNo = parts[0]; // - 앞부분 (공고번호)
+    
+    // - 뒷부분이 숫자인 경우 3자리 포맷(001, 002 등)으로 맞춤
+    if (parts[1]) {
+      bidOrd = String(parts[1]).padStart(3, '0');
+    }
+  }
+
+  let items = [];
+
+  if (rawBidNo.includes('-')) {
+    // 1. 차수가 명시되어 있으면(-01 등) 해당 차수로 1번만 바로 조회 (가장 빠름)
+    try {
+      items = getOpengCompleteList_(cleanBidNo, bidOrd, '0', '000');
+    } catch (e) {
+      SpreadsheetApp.getUi().alert('개찰결과 조회 실패: ' + e.message);
+      return;
+    }
+  } else {
+    // 2. 차수가 없는 경우만 000부터 순차 탐색 (000 -> 001 -> 002 -> 003)
+    const candidateOrders = ['000', '001', '002', '003'];
+
+    for (let ord of candidateOrders) {
+      try {
+        const res = getOpengCompleteList_(cleanBidNo, ord, '0', '000');
+        if (res && res.length > 0) {
+          items = res;
+          break; // 찾으면 바로 종료하여 시간 단축
+        }
+      } catch (e) {
+        // 해당 차수에 없으면 다음 차수 시도
+      }
+    }
   }
 
   if (items.length === 0) {
